@@ -55,7 +55,12 @@ def render_grid():
                                 # Update in state if checkbox is clicked
                                 if checkbox.changed:
                                     print("Checkbox changed")
-                                    checkboxes[key]["checked"] = not checkbox.checked
+                                    # checkboxes[key]["checked"] = checkbox.checked
+                                    checkboxes[key]["checked"] = not checkboxes[key][
+                                        "checked"
+                                    ]
+                                    # Mark the cell as manually updated
+                                    checkboxes[key]["locked"] = True
                                     # Update the generation to trigger a re-render
                                     state.generation += 1
 
@@ -117,10 +122,18 @@ def next_generation():
         else:
             new_state[(row, col)] = live_neighbors == 3
 
-    # Update the checkbox states
+    # Update the checkbox states for cells that are not locked.
     for (row, col), alive in new_state.items():
         key = f"checkbox_{row}_{col}"
-        checkboxes[key]["checked"] = alive
+        # Only update if the cell wasn't manually toggled
+        if not checkboxes[key].get("locked", False):
+            checkboxes[key]["checked"] = alive
+
+    # Unlock all cells that are currently locked.
+    # (Changing the default to False ensures we only unlock cells that were explicitly locked.)
+    for key in checkboxes.keys():
+        if checkboxes[key].get("locked", False):
+            checkboxes[key]["locked"] = False
 
     return True
 
