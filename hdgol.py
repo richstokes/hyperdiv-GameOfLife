@@ -146,13 +146,16 @@ def main():
     hd.markdown(f"Generation: `{state.generation}`")  # Shows current generation
     render_grid()
 
+    # TODO: Fix so clicking the checkboxes updates the global state
     # for key, checkbox in checkboxes.items():
     #     if checkbox.checked:
     #         print(f"{key} is alive (checked)")
     # next_generation()
 
+    hd.divider(spacing=2, thickness=0)
     with hd.hbox(gap=1):
         next_button = hd.button("Next Generation", disabled=task.running)
+        hd.divider(vertical=True, spacing=1)
         auto_button = hd.button("Auto", disabled=auto_task.running)
         stop_button = hd.button("Stop", disabled=not auto_task.running)
         reset_button = hd.button("Reset")
@@ -165,10 +168,10 @@ def main():
         if stop_button.clicked:
             state.stopped = True
         if reset_button.clicked:
+            checkboxes = {}
             state.did_setup = False
             state.stopped = True
             state.generation = 0
-            checkboxes = {}
             loc = hd.location()
             loc.path = "/"
 
