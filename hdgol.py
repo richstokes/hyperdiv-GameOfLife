@@ -5,7 +5,7 @@ import time
 
 ROWS = 30
 COLS = 50
-DELAY_TIME = 0.20  # Delay between generations in seconds
+DELAY_TIME = 0.25  # Delay between generations in seconds
 
 checkboxes = (
     {}
@@ -48,11 +48,16 @@ def render_grid():
                             with hd.scope(col):
                                 key = f"checkbox_{row}_{col}"
                                 # Render a checkbox with its current state.
-                                # (Assuming hd.checkbox can be created from stored data.)
-                                hd.checkbox(
+                                checkbox = hd.checkbox(
                                     name=f"cell_{row}_{col}",
                                     checked=checkboxes[key]["checked"],
                                 )
+                                # Update in state if checkbox is clicked
+                                if checkbox.changed:
+                                    print("Checkbox changed")
+                                    checkboxes[key]["checked"] = checkbox.checked
+                                    # Update the generation to trigger a re-render
+                                    state.generation += 1
 
 
 def parse_coordinates(key: str):
@@ -146,11 +151,12 @@ def main():
     hd.markdown(f"Generation: `{state.generation}`")  # Shows current generation
     render_grid()
 
-    # TODO: Fix so clicking the checkboxes updates the global state
-    # for key, checkbox in checkboxes.items():
-    #     if checkbox.checked:
-    #         print(f"{key} is alive (checked)")
-    # next_generation()
+    # Update the global state when checkboxes are clicked
+    # for key in checkboxes.keys():
+    #     print(key)
+    # with hd.scope(key):
+    #     if hd.checkbox(name=key).changed:
+    #         checkboxes[key]["checked"] = hd.checkbox(name=key).checked
 
     hd.divider(spacing=2, thickness=0)
     with hd.hbox(gap=1):
@@ -158,6 +164,7 @@ def main():
         hd.divider(vertical=True, spacing=1)
         auto_button = hd.button("Auto", disabled=auto_task.running)
         stop_button = hd.button("Stop", disabled=not auto_task.running)
+        hd.divider(vertical=True, spacing=1)
         reset_button = hd.button("Reset")
 
         if next_button.clicked:
