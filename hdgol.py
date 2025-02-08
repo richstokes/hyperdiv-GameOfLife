@@ -55,7 +55,7 @@ def render_grid():
                                 # Update in state if checkbox is clicked
                                 if checkbox.changed:
                                     print("Checkbox changed")
-                                    checkboxes[key]["checked"] = checkbox.checked
+                                    checkboxes[key]["checked"] = not checkbox.checked
                                     # Update the generation to trigger a re-render
                                     state.generation += 1
 
