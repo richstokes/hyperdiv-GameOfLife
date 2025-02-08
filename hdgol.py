@@ -4,8 +4,8 @@ import random
 import time
 
 ROWS = 30
-COLS = 30
-DELAY_TIME = 0.25  # Delay between generations in seconds
+COLS = 50
+DELAY_TIME = 0.20  # Delay between generations in seconds
 
 checkboxes = (
     {}
@@ -29,7 +29,7 @@ def initialize_grid_data(rows: int, cols: int):
     for row in range(rows):
         for col in range(cols):
             key = f"checkbox_{row}_{col}"
-            start_checked = random.random() < 0.2  # 20% chance of being checked
+            start_checked = random.random() < 0.4  # % chance of being checked
             checkboxes[key] = {"checked": start_checked}
     state.did_setup = True
 
