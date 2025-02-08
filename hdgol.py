@@ -5,7 +5,7 @@ import time
 
 ROWS = 30
 COLS = 30
-DELAY_TIME = 0.25 # Delay between generations in seconds
+DELAY_TIME = 0.25  # Delay between generations in seconds
 
 checkboxes = (
     {}
@@ -131,6 +131,7 @@ async def next_generation_loop():
         state.generation += 1
         await asyncio.sleep(DELAY_TIME)
 
+
 def main():
     # Initialize grid data once at startup.
     state = MyState()
@@ -159,7 +160,6 @@ def main():
         if next_button.clicked:
             task.rerun(next_generation)
         if auto_button.clicked:
-            # auto_task.run(get_users())
             state.stopped = False
             auto_task.rerun(next_generation_loop)
         if stop_button.clicked:
