@@ -52,13 +52,8 @@ def render_grid():
                                 # Update in state if checkbox is clicked
                                 if checkbox.changed:
                                     print("Checkbox changed")
-                                    # checkboxes[key]["checked"] = checkbox.checked
-                                    state.checkboxes[key]["checked"] = (
-                                        not state.checkboxes[key]["checked"]
-                                    )
-                                    # Mark the cell as manually updated
+                                    state.checkboxes[key]["checked"] = checkbox.checked
                                     state.checkboxes[key]["locked"] = True
-                                    # Update the generation to trigger a re-render
                                     state.generation += 1
 
 
@@ -159,13 +154,6 @@ def main():
     hd.markdown("## Conway's Game of Life")
     hd.markdown(f"Generation: `{state.generation}`")  # Shows current generation
     render_grid()
-
-    # Update the global state when checkboxes are clicked
-    # for key in checkboxes.keys():
-    #     print(key)
-    # with hd.scope(key):
-    #     if hd.checkbox(name=key).changed:
-    #         checkboxes[key]["checked"] = hd.checkbox(name=key).checked
 
     hd.divider(spacing=2, thickness=0)
     with hd.hbox(gap=1):
