@@ -74,30 +74,7 @@ def render_grid():
                                     state.generation += 1
 
 
-def parse_coordinates(key: str):
-    """
-    Given a key like 'checkbox_3_5', return (3,5).
-    """
-    # Last two parts after splitting by underscore are row and col
-    parts = key.split("_")
-    row = int(parts[1])
-    col = int(parts[2])
-    return row, col
-
-
-def get_neighbors(r, c, max_r, max_c):
-    """
-    Return a list of valid neighbor coordinates for cell (r, c).
-    """
-    neighbors = []
-    for nr in range(r - 1, r + 2):
-        for nc in range(c - 1, c + 2):
-            # Exclude the cell itself and out-of-bounds
-            if (nr, nc) != (r, c) and 0 <= nr < max_r and 0 <= nc < max_c:
-                neighbors.append((nr, nc))
-    return neighbors
-
-
+# Original next_generation function
 def next_generation():
     """
     Compute the next generation based on Conway's Game of Life rules:
