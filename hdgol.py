@@ -7,16 +7,13 @@ ROWS = 30
 COLS = 50
 DELAY_TIME = 0.25  # Delay between generations in seconds
 
-checkboxes = (
-    {}
-)  # Because we can't store the checkbox state in the global state / doesnt seem to support Dicts? There's probably a better way.
-
 
 @hd.global_state
 class MyState(hd.BaseState):
     did_setup = hd.Prop(hd.Bool, False)  # Whether the grid data has been initialized
     stopped = hd.Prop(hd.Bool, False)  # Whether the auto task has been stopped
     generation = hd.Prop(hd.Int, 0)  # Track the generation number
+    checkboxes = hd.Prop(hd.Any, dict())  # Store the checkbox data
 
 
 def initialize_grid_data(rows: int, cols: int):
@@ -24,20 +21,20 @@ def initialize_grid_data(rows: int, cols: int):
     state = MyState()
     if state.did_setup:
         return
-    global checkboxes
-    checkboxes = {}
+
+    state.checkboxes = {}
     for row in range(rows):
         for col in range(cols):
             key = f"checkbox_{row}_{col}"
             start_checked = random.random() < 0.4  # % chance of being checked
-            checkboxes[key] = {"checked": start_checked}
+            state.checkboxes[key] = {"checked": start_checked}
     state.did_setup = True
 
 
 def render_grid():
     """Render the grid from the data stored in global state."""
     state = MyState()
-    global checkboxes
+
     # The UI components are generated from the persisted data.
     with hd.table():
         with hd.tbody():
@@ -50,17 +47,17 @@ def render_grid():
                                 # Render a checkbox with its current state.
                                 checkbox = hd.checkbox(
                                     name=f"cell_{row}_{col}",
-                                    checked=checkboxes[key]["checked"],
+                                    checked=state.checkboxes[key]["checked"],
                                 )
                                 # Update in state if checkbox is clicked
                                 if checkbox.changed:
                                     print("Checkbox changed")
                                     # checkboxes[key]["checked"] = checkbox.checked
-                                    checkboxes[key]["checked"] = not checkboxes[key][
-                                        "checked"
-                                    ]
+                                    state.checkboxes[key]["checked"] = (
+                                        not state.checkboxes[key]["checked"]
+                                    )
                                     # Mark the cell as manually updated
-                                    checkboxes[key]["locked"] = True
+                                    state.checkboxes[key]["locked"] = True
                                     # Update the generation to trigger a re-render
                                     state.generation += 1
 
@@ -98,10 +95,9 @@ def next_generation():
     """
     print("Computing next generation...")
     state = MyState()
-    global checkboxes
 
     current_state = {}
-    for key, checkbox in checkboxes.items():
+    for key, checkbox in state.checkboxes.items():
         # Parse the key to get row and col
         parts = key.split("_")
         row, col = int(parts[1]), int(parts[2])
@@ -126,14 +122,14 @@ def next_generation():
     for (row, col), alive in new_state.items():
         key = f"checkbox_{row}_{col}"
         # Only update if the cell wasn't manually toggled
-        if not checkboxes[key].get("locked", False):
-            checkboxes[key]["checked"] = alive
+        if not state.checkboxes[key].get("locked", False):
+            state.checkboxes[key]["checked"] = alive
 
     # Unlock all cells that are currently locked.
     # (Changing the default to False ensures we only unlock cells that were explicitly locked.)
-    for key in checkboxes.keys():
-        if checkboxes[key].get("locked", False):
-            checkboxes[key]["locked"] = False
+    for key in state.checkboxes.keys():
+        if state.checkboxes[key].get("locked", False):
+            state.checkboxes[key]["locked"] = False
 
     return True
 
@@ -153,8 +149,8 @@ async def next_generation_loop():
 def main():
     # Initialize grid data once at startup.
     state = MyState()
-    global checkboxes
-    if not checkboxes:
+
+    if not state.checkboxes:
         initialize_grid_data(ROWS, COLS)
 
     task = hd.task()
@@ -188,7 +184,7 @@ def main():
         if stop_button.clicked:
             state.stopped = True
         if reset_button.clicked:
-            checkboxes = {}
+            state.checkboxes = {}
             state.did_setup = False
             state.stopped = True
             state.generation = 0
