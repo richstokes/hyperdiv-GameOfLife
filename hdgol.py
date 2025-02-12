@@ -1,10 +1,10 @@
 import asyncio
 import hyperdiv as hd
 import random
-import time
+from rslog import rslog
 
-ROWS = 30
-COLS = 50
+ROWS = 20
+COLS = 20
 DELAY_TIME = 0.25  # Delay between generations in seconds
 
 
@@ -26,7 +26,7 @@ def initialize_grid_data(rows: int, cols: int):
     for row in range(rows):
         for col in range(cols):
             key = f"checkbox_{row}_{col}"
-            start_checked = random.random() < 0.4  # % chance of being checked
+            start_checked = random.random() < 0.1  # % chance of being checked
             state.checkboxes[key] = {"checked": start_checked}
     state.did_setup = True
 
@@ -52,8 +52,15 @@ def render_grid():
                                 # Update in state if checkbox is clicked
                                 if checkbox.changed:
                                     print("Checkbox changed")
-                                    state.checkboxes[key]["checked"] = checkbox.checked
-                                    state.checkboxes[key]["locked"] = True
+                                    # Update the cell’s state immutably (without a lock)
+                                    new_cell = {
+                                        **state.checkboxes[key],
+                                        "checked": checkbox.checked,
+                                    }
+                                    state.checkboxes = {
+                                        **state.checkboxes,
+                                        key: new_cell,
+                                    }
                                     state.generation += 1
 
 
@@ -88,19 +95,18 @@ def next_generation():
       2. Any dead cell with exactly 3 live neighbors becomes a live cell.
       3. All other live cells die, and all other dead cells stay dead.
     """
-    print("Computing next generation...")
+    rslog("Computing next generation...")
     state = MyState()
 
+    # Snapshot the current state.
     current_state = {}
-    for key, checkbox in state.checkboxes.items():
-        # Parse the key to get row and col
+    for key, cell in state.checkboxes.items():
         parts = key.split("_")
         row, col = int(parts[1]), int(parts[2])
-        current_state[(row, col)] = checkbox["checked"]
+        current_state[(row, col)] = cell["checked"]
 
     new_state = {}
     for (row, col), alive in current_state.items():
-        # Calculate neighbors
         neighbors = [
             (nr, nc)
             for nr in range(row - 1, row + 2)
@@ -108,24 +114,20 @@ def next_generation():
             if (nr, nc) != (row, col) and 0 <= nr < ROWS and 0 <= nc < COLS
         ]
         live_neighbors = sum(current_state[(nr, nc)] for (nr, nc) in neighbors)
-        if alive:
-            new_state[(row, col)] = live_neighbors in [2, 3]
-        else:
-            new_state[(row, col)] = live_neighbors == 3
+        new_state[(row, col)] = (alive and live_neighbors in [2, 3]) or (
+            not alive and live_neighbors == 3
+        )
 
-    # Update the checkbox states for cells that are not locked.
+    # Build a new checkboxes dict immutably.
+    new_checkboxes = {}
     for (row, col), alive in new_state.items():
         key = f"checkbox_{row}_{col}"
-        # Only update if the cell wasn't manually toggled
-        if not state.checkboxes[key].get("locked", False):
-            state.checkboxes[key]["checked"] = alive
+        cell = state.checkboxes[key]
+        # Always update based on the sim’s rules.
+        new_cell = {**cell, "checked": alive}
+        new_checkboxes[key] = new_cell
 
-    # Unlock all cells that are currently locked.
-    # (Changing the default to False ensures we only unlock cells that were explicitly locked.)
-    for key in state.checkboxes.keys():
-        if state.checkboxes[key].get("locked", False):
-            state.checkboxes[key]["locked"] = False
-
+    state.checkboxes = new_checkboxes
     return True
 
 
@@ -135,7 +137,6 @@ async def next_generation_loop():
     while True:
         if state.stopped:
             break
-        print("LOOP")
         next_generation()
         state.generation += 1
         await asyncio.sleep(DELAY_TIME)
