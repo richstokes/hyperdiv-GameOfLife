@@ -4,7 +4,7 @@ import random
 from rslog import rslog
 
 ROWS = 20
-COLS = 20
+COLS = 30
 DELAY_TIME = 0.25  # Delay between generations in seconds
 
 
@@ -26,7 +26,7 @@ def initialize_grid_data(rows: int, cols: int):
     for row in range(rows):
         for col in range(cols):
             key = f"checkbox_{row}_{col}"
-            start_checked = random.random() < 0.1  # % chance of being checked
+            start_checked = random.random() < 0.5  # % chance of being checked
             state.checkboxes[key] = {"checked": start_checked}
     state.did_setup = True
 
@@ -51,7 +51,7 @@ def render_grid():
                                 )
                                 # Update in state if checkbox is clicked
                                 if checkbox.changed:
-                                    print("Checkbox changed")
+                                    rslog("Checkbox changed")
                                     # Update the cell’s state immutably (without a lock)
                                     new_cell = {
                                         **state.checkboxes[key],
