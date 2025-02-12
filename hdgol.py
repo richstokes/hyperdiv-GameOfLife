@@ -1,11 +1,23 @@
 import asyncio
 import hyperdiv as hd
 import random
+import numpy as np
 from rslog import rslog
+from scipy.signal import convolve2d  # Make sure SciPy is installed.
 
 ROWS = 20
 COLS = 30
 DELAY_TIME = 0.25  # Delay between generations in seconds
+NEIGHBOR_OFFSETS = [
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+]
 
 
 @hd.global_state
@@ -22,20 +34,20 @@ def initialize_grid_data(rows: int, cols: int):
     if state.did_setup:
         return
 
+    # Use tuple keys: (row, col)
     state.checkboxes = {}
     for row in range(rows):
         for col in range(cols):
-            key = f"checkbox_{row}_{col}"
-            start_checked = random.random() < 0.5  # % chance of being checked
+            key = (row, col)
+            start_checked = random.random() < 0.5  # 50% chance of being checked
             state.checkboxes[key] = {"checked": start_checked}
+
     state.did_setup = True
 
 
 def render_grid():
-    """Render the grid from the data stored in global state."""
     state = MyState()
 
-    # The UI components are generated from the persisted data.
     with hd.table():
         with hd.tbody():
             for row in range(ROWS):
@@ -43,20 +55,18 @@ def render_grid():
                     with hd.tr():
                         for col in range(COLS):
                             with hd.scope(col):
-                                key = f"checkbox_{row}_{col}"
-                                # Render a checkbox with its current state.
+                                key = (row, col)  # tuple key now
                                 checkbox = hd.checkbox(
-                                    name=f"cell_{row}_{col}",
+                                    name=f"cell_{row}_{col}",  # name can remain a string
                                     checked=state.checkboxes[key]["checked"],
                                 )
-                                # Update in state if checkbox is clicked
                                 if checkbox.changed:
                                     rslog("Checkbox changed")
-                                    # Update the cell’s state immutably (without a lock)
                                     new_cell = {
                                         **state.checkboxes[key],
                                         "checked": checkbox.checked,
                                     }
+                                    # Update state immutably:
                                     state.checkboxes = {
                                         **state.checkboxes,
                                         key: new_cell,
@@ -98,22 +108,21 @@ def next_generation():
     rslog("Computing next generation...")
     state = MyState()
 
-    # Snapshot the current state.
+    # Build a snapshot of the current state.
     current_state = {}
     for key, cell in state.checkboxes.items():
-        parts = key.split("_")
-        row, col = int(parts[1]), int(parts[2])
-        current_state[(row, col)] = cell["checked"]
+        # key is already a (row, col) tuple
+        current_state[key] = cell["checked"]
 
     new_state = {}
+    # Use tuple keys and precomputed neighbor offsets.
     for (row, col), alive in current_state.items():
-        neighbors = [
-            (nr, nc)
-            for nr in range(row - 1, row + 2)
-            for nc in range(col - 1, col + 2)
-            if (nr, nc) != (row, col) and 0 <= nr < ROWS and 0 <= nc < COLS
-        ]
-        live_neighbors = sum(current_state[(nr, nc)] for (nr, nc) in neighbors)
+        live_neighbors = 0
+        for dr, dc in NEIGHBOR_OFFSETS:
+            nr, nc = row + dr, col + dc
+            if 0 <= nr < ROWS and 0 <= nc < COLS:
+                # get() returns 0 (False) if key not found
+                live_neighbors += current_state.get((nr, nc), 0)
         new_state[(row, col)] = (alive and live_neighbors in [2, 3]) or (
             not alive and live_neighbors == 3
         )
@@ -121,11 +130,53 @@ def next_generation():
     # Build a new checkboxes dict immutably.
     new_checkboxes = {}
     for (row, col), alive in new_state.items():
-        key = f"checkbox_{row}_{col}"
+        key = (row, col)
         cell = state.checkboxes[key]
-        # Always update based on the sim’s rules.
         new_cell = {**cell, "checked": alive}
         new_checkboxes[key] = new_cell
+
+    state.checkboxes = new_checkboxes
+    return True
+
+
+def next_generation_numpy():
+    rslog("Computing next generation (numpy version)...")
+    state = MyState()
+
+    # 1. Convert the current state (a dict with tuple keys) to a NumPy array.
+    #    We'll assume a grid shape of (ROWS, COLS).
+    grid = np.zeros((ROWS, COLS), dtype=np.int32)
+    for row in range(ROWS):
+        for col in range(COLS):
+            key = (row, col)
+            # Convert the boolean to int (1 for True, 0 for False)
+            grid[row, col] = 1 if state.checkboxes[key]["checked"] else 0
+
+    # 2. Compute the number of live neighbors using convolution.
+    #    The kernel below sums the 8 surrounding cells.
+    kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.int32)
+
+    neighbor_count = convolve2d(grid, kernel, mode="same", boundary="fill", fillvalue=0)
+
+    # 3. Apply the Game of Life rules:
+    #    - A live cell (1) survives if it has 2 or 3 live neighbors.
+    #    - A dead cell (0) becomes live if it has exactly 3 live neighbors.
+    new_grid = np.where(
+        ((grid == 1) & ((neighbor_count == 2) | (neighbor_count == 3)))
+        | ((grid == 0) & (neighbor_count == 3)),
+        1,
+        0,
+    )
+
+    # 4. Convert the new grid back to the dictionary format.
+    new_checkboxes = {}
+    for row in range(ROWS):
+        for col in range(COLS):
+            key = (row, col)
+            cell = state.checkboxes[key]
+            # Update the "checked" state based on new_grid (casting to bool)
+            new_cell = {**cell, "checked": bool(new_grid[row, col])}
+            new_checkboxes[key] = new_cell
 
     state.checkboxes = new_checkboxes
     return True
@@ -137,7 +188,8 @@ async def next_generation_loop():
     while True:
         if state.stopped:
             break
-        next_generation()
+        # next_generation()
+        next_generation_numpy()
         state.generation += 1
         await asyncio.sleep(DELAY_TIME)
 
@@ -166,7 +218,7 @@ def main():
         reset_button = hd.button("Reset")
 
         if next_button.clicked:
-            task.rerun(next_generation)
+            task.rerun(next_generation_numpy)
         if auto_button.clicked:
             state.stopped = False
             auto_task.rerun(next_generation_loop)
