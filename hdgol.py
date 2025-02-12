@@ -39,7 +39,9 @@ def initialize_grid_data(rows: int, cols: int):
     for row in range(rows):
         for col in range(cols):
             key = (row, col)
-            start_checked = random.random() < 0.5  # 50% chance of being checked
+            start_checked = random.random() < random.uniform(
+                0.1, 0.5
+            )  # Random chance between 0.1 and 0.5
             state.checkboxes[key] = {"checked": start_checked}
 
     state.did_setup = True
